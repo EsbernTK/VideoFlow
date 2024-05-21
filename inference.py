@@ -25,7 +25,7 @@ def prepare_image(seq_dir):
 
     images = []
 
-    image_list = sorted(os.listdir(seq_dir))
+    image_list = sorted([f for f in os.listdir(seq_dir) if f.endswith('png') or f.endswith('jpg')])
 
     for fn in image_list:
         img = Image.open(os.path.join(seq_dir, fn))
@@ -53,11 +53,12 @@ def vis_pre(flow_pre, vis_dir):
         image.save('{}/flow_{:04}_to_{:04}.png'.format(vis_dir, idx-N//2+2, idx-N//2+1))
 
 @torch.no_grad()
-def MOF_inference(model, cfg):
+def MOF_inference(model, cfg, max_batch_size=8):
 
     model.eval()
 
     input_images = prepare_image(cfg.seq_dir)
+    input_images = input_images[:max_batch_size]
     input_images = input_images[None].cuda()
     padder = InputPadder(input_images.shape)
     input_images = padder.pad(input_images)
@@ -88,6 +89,8 @@ if __name__ == '__main__':
     parser.add_argument('--mode', default='MOF')
     parser.add_argument('--seq_dir', default='default')
     parser.add_argument('--vis_dir', default='default')
+    parser.add_argument('--images_per_batch', type=int, default=5)
+    parser.add_argument('--batch_size', type=int, default=1)
     
     args = parser.parse_args()
 
@@ -111,7 +114,7 @@ if __name__ == '__main__':
     with torch.no_grad():
         if args.mode == 'MOF':
             from configs.multiframes_sintel_submission import get_cfg
-            flow_pre = MOF_inference(model.module, cfg)
+            flow_pre = MOF_inference(model.module, cfg, args.images_per_batch)
         elif args.mode == 'BOF':
             from configs.sintel_submission import get_cfg
             flow_pre = BOF_inference(model.module, cfg)
